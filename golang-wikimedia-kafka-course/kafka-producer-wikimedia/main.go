@@ -60,8 +60,7 @@ func main() {
 			logger.Println("Unexpected error", err)
 
 		case <-signals:
-			wikimediaEventSource.Close()
-			kafkaProducer.Close()
+			kafkaProducer.AsyncClose()
 		}
 	}
 }

@@ -40,5 +40,5 @@ func (kp *KafkaProducer) AsyncClose() {
 }
 
 func (kp *KafkaProducer) Close() {
-	kp.producer.Close()
+	kp.producer.AsyncClose()
 }

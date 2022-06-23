@@ -18,12 +18,12 @@ func NewWikimedia(sse *sse.SSEClient) WikimediaEventSource {
 }
 
 func (w *WikimediaEventSource) HandleMessage() {
-	w.sseClient.Listen(func(er *sse.EventReader) {
+	w.sseClient.Listen(func(er *sse.EventReader) error {
 		line, err := er.BodyReader.ReadBytes('\n')
 		if err != nil {
 			log.Println("Reader error:", err)
 			w.sseClient.Error(err)
-			return
+			return err
 		}
 		eventLine := string(line)
 		if strings.Contains(eventLine, "id: ") {
@@ -32,10 +32,11 @@ func (w *WikimediaEventSource) HandleMessage() {
 		}
 		if strings.Contains(eventLine, "data: ") {
 			l := strings.Split(eventLine, "data: ")
-			s := strings.Trim(l[1], "\n")
+			s := strings.TrimSpace(l[1])
 			er.MessageEvent.Data = s
 			w.sseClient.SendEvent(er)
 		}
+		return nil
 	})
 }
 
@@ -45,8 +46,4 @@ func (w *WikimediaEventSource) Successes() chan []byte {
 
 func (w *WikimediaEventSource) Errors() chan error {
 	return w.sseClient.Errors()
-}
-
-func (w *WikimediaEventSource) Close() {
-	w.sseClient.Close()
 }

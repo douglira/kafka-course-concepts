@@ -35,11 +35,7 @@ func newEventReader(body io.ReadCloser) *EventReader {
 	}
 }
 
-type HandlerSuccess func(me *MessageEvent)
-
-type HandlerError func(err error)
-
-type MessageHandler func(er *EventReader)
+type MessageHandler func(er *EventReader) error
 
 func NewClient(url string) *SSEClient {
 
@@ -63,13 +59,6 @@ func (sse *SSEClient) Errors() chan error {
 	return sse.errors
 }
 
-func (sse *SSEClient) Close() {
-	sse.eventReader.body.Close()
-
-	close(sse.successes)
-	close(sse.errors)
-}
-
 func (sse *SSEClient) SendEvent(er *EventReader) {
 	messageBytes, err := json.Marshal(er.MessageEvent)
 	if err != nil {
@@ -89,10 +78,22 @@ func run(sse *SSEClient, h MessageHandler) {
 		log.Println("Request Error:", err)
 		return
 	}
+	defer func() {
+		err := sse.eventReader.body.Close()
+		if err != nil {
+			log.Println(err)
+		}
+
+		close(sse.successes)
+		close(sse.errors)
+	}()
 
 	sse.eventReader = newEventReader(res.Body)
 
 	for {
-		h(sse.eventReader)
+		err := h(sse.eventReader)
+		if err != nil {
+			break
+		}
 	}
 }
