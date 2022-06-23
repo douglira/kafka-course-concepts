@@ -1,0 +1,7 @@
+go 1.18
+
+use (
+	./golang-wikimedia-kafka-course/kafka-producer-wikimedia
+	./golang/kafka-course-consumer-concepts
+	./golang/kafka-course-producer-concepts
+)
