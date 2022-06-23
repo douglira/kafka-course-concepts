@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 
+	"github.com/Shopify/sarama"
 	"github.com/douglira/kafka-producer-wikimedia/adapters/messaging"
 	"github.com/douglira/kafka-producer-wikimedia/adapters/sse"
 	"github.com/douglira/kafka-producer-wikimedia/business/eventsourcing"
@@ -13,9 +15,13 @@ import (
 
 const (
 	WIKIMEDIA_URI = "https://stream.wikimedia.org/v2/stream/recentchange"
+	TOPIC         = "wikimedia.recentchange"
 )
 
+var logger = log.New(os.Stderr, "", log.LstdFlags)
+
 func main() {
+	sarama.Logger = logger
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
@@ -23,8 +29,18 @@ func main() {
 	wikimediaEventSource := eventsourcing.NewWikimedia(sseClient)
 	wikimediaEventSource.HandleMessage()
 
-	topic := "wikimedia.recentchange"
-	kafkaProducer := messaging.NewProducer(topic)
+	c := sarama.NewConfig()
+	// Set safe producer config
+	c.Net.MaxOpenRequests = 1
+	c.Producer.Retry.Max = 5
+	c.Producer.RequiredAcks = sarama.WaitForAll
+	c.Producer.Idempotent = true
+	c.Producer.Retry.Max = math.MaxInt32
+	// Faster to transfer data and less latency
+	c.Producer.Compression = sarama.CompressionSnappy
+	c.Producer.Flush.Frequency = 20
+	c.Producer.Flush.Bytes = 32 << (10 * 1)
+	kafkaProducer := messaging.NewProducer(TOPIC, c)
 
 	for {
 		select {
@@ -35,16 +51,17 @@ func main() {
 			dataByte, err := json.Marshal(&me.Data)
 
 			if err != nil {
-				log.Println("Parse event source payload error", err)
+				logger.Println("Parse event source payload error", err)
 				continue
 			}
 
 			kafkaProducer.SendMessage("", dataByte)
 		case err := <-wikimediaEventSource.Errors():
-			log.Println("Unexpected error", err)
+			logger.Println("Unexpected error", err)
 
 		case <-signals:
-			kafkaProducer.AsyncClose()
+			wikimediaEventSource.Close()
+			kafkaProducer.Close()
 		}
 	}
 }

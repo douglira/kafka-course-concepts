@@ -9,8 +9,7 @@ type KafkaProducer struct {
 	producer sarama.AsyncProducer
 }
 
-func NewProducer(topic string) KafkaProducer {
-	config := sarama.NewConfig()
+func NewProducer(topic string, config *sarama.Config) KafkaProducer {
 	producer, err := sarama.NewAsyncProducer([]string{"localhost:9092"}, config)
 	if err != nil {
 		panic(err)
@@ -38,4 +37,8 @@ func (kp *KafkaProducer) SendMessage(key string, message []byte) {
 
 func (kp *KafkaProducer) AsyncClose() {
 	kp.producer.AsyncClose()
+}
+
+func (kp *KafkaProducer) Close() {
+	kp.producer.Close()
 }

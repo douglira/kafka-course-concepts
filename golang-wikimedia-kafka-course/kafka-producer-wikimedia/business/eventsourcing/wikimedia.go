@@ -46,3 +46,7 @@ func (w *WikimediaEventSource) Successes() chan []byte {
 func (w *WikimediaEventSource) Errors() chan error {
 	return w.sseClient.Errors()
 }
+
+func (w *WikimediaEventSource) Close() {
+	w.sseClient.Close()
+}

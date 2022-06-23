@@ -9,9 +9,10 @@ import (
 )
 
 type SSEClient struct {
-	url       string
-	successes chan []byte
-	errors    chan error
+	url         string
+	successes   chan []byte
+	errors      chan error
+	eventReader *EventReader
 }
 
 type MessageEvent struct {
@@ -22,11 +23,13 @@ type MessageEvent struct {
 type EventReader struct {
 	BodyReader   bufio.Reader
 	MessageEvent *MessageEvent
+	body         io.ReadCloser
 }
 
-func newEventReader(body io.Reader) EventReader {
+func newEventReader(body io.ReadCloser) *EventReader {
 	bodyReader := bufio.NewReader(body)
-	return EventReader{
+	return &EventReader{
+		body:         body,
 		BodyReader:   *bodyReader,
 		MessageEvent: &MessageEvent{},
 	}
@@ -60,6 +63,13 @@ func (sse *SSEClient) Errors() chan error {
 	return sse.errors
 }
 
+func (sse *SSEClient) Close() {
+	sse.eventReader.body.Close()
+
+	close(sse.successes)
+	close(sse.errors)
+}
+
 func (sse *SSEClient) SendEvent(er *EventReader) {
 	messageBytes, err := json.Marshal(er.MessageEvent)
 	if err != nil {
@@ -77,12 +87,12 @@ func run(sse *SSEClient, h MessageHandler) {
 	res, err := http.Get(sse.url)
 	if err != nil {
 		log.Println("Request Error:", err)
+		return
 	}
-	defer res.Body.Close()
 
-	er := newEventReader(res.Body)
+	sse.eventReader = newEventReader(res.Body)
 
 	for {
-		h(&er)
+		h(sse.eventReader)
 	}
 }
