@@ -1,4 +1,4 @@
-package messaging
+package kafka
 
 import (
 	"github.com/Shopify/sarama"

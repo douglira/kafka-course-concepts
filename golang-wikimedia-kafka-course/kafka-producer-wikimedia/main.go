@@ -8,7 +8,7 @@ import (
 	"os/signal"
 
 	"github.com/Shopify/sarama"
-	"github.com/douglira/kafka-producer-wikimedia/adapters/messaging"
+	"github.com/douglira/kafka-producer-wikimedia/adapters/messaging/kafka"
 	"github.com/douglira/kafka-producer-wikimedia/adapters/sse"
 	"github.com/douglira/kafka-producer-wikimedia/business/eventsourcing"
 )
@@ -27,7 +27,7 @@ func main() {
 
 	sseClient := sse.NewClient(WIKIMEDIA_URI)
 	wikimediaEventSource := eventsourcing.NewWikimedia(sseClient)
-	wikimediaEventSource.HandleMessage()
+	sseClient.Listen(wikimediaEventSource)
 
 	c := sarama.NewConfig()
 	// Set safe producer config
@@ -40,7 +40,7 @@ func main() {
 	c.Producer.Compression = sarama.CompressionSnappy
 	c.Producer.Flush.Frequency = 20
 	c.Producer.Flush.Bytes = 32 << (10 * 1)
-	kafkaProducer := messaging.NewProducer(TOPIC, c)
+	kafkaProducer := kafka.NewProducer(TOPIC, c)
 
 	for {
 		select {
@@ -48,14 +48,8 @@ func main() {
 			me := sse.MessageEvent{}
 
 			json.Unmarshal(message, &me)
-			dataByte, err := json.Marshal(&me.Data)
 
-			if err != nil {
-				logger.Println("Parse event source payload error", err)
-				continue
-			}
-
-			kafkaProducer.SendMessage("", dataByte)
+			kafkaProducer.SendMessage("", []byte(me.Data))
 		case err := <-wikimediaEventSource.Errors():
 			logger.Println("Unexpected error", err)
 
