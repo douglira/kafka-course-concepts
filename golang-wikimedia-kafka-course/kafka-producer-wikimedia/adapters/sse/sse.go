@@ -55,7 +55,6 @@ func (sse *SSEClient) OnError(err error) {
 
 func run(sse *SSEClient, h SSEClientHandler) {
 	defer func() {
-		sse.eventReader.body.Close()
 		close(sse.successes)
 		close(sse.errors)
 	}()

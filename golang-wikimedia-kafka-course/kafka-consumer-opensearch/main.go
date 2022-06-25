@@ -19,15 +19,14 @@ func main() {
 
 	opensearchClient := db.NewElasticSearchClient(WIKIMEDIA_OPENSEARCH_INDEX)
 	opensearchClient.CreateIndex()
+	wikimediaStorage := db.NewWikimedia(opensearchClient)
 
-	kafkaConsumer := kafka.NewConsumerGroup(KAFKA_TOPIC, KAFKA_GROUP_ID)
-	defer kafkaConsumer.Close()
-
-	wikimediaStorage := db.NewWikimedia(opensearchClient, ctx)
-	wikimediaConsumerHandler := kafka.WikimediaConsumer{Storage: wikimediaStorage}
+	wikimediaConsumerHandler := kafka.NewWikimediaConsumer(wikimediaStorage)
+	wikimediaKafkaConsumer := kafka.NewConsumerGroup(KAFKA_TOPIC, KAFKA_GROUP_ID, wikimediaConsumerHandler)
+	defer wikimediaKafkaConsumer.Close()
 
 	for {
-		err := kafkaConsumer.ConsumeMessage(ctx, wikimediaConsumerHandler)
+		err := wikimediaKafkaConsumer.ConsumeMessage(ctx)
 		if err != nil {
 			log.Println("Error at kafka consumer group", err)
 		}

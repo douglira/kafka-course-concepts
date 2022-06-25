@@ -5,5 +5,6 @@ type WikimediaMeta struct {
 }
 
 type Wikimedia struct {
+	Id   string        `json:"_id"`
 	Meta WikimediaMeta `json:"meta"`
 }
